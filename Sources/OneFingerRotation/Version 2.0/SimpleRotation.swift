@@ -7,18 +7,15 @@
 
 import SwiftUI
 
+@available(iOS 17.0, *)
 public struct SimpleRotation: ViewModifier {
-    @State private var rotationAngle: Angle = .zero
+    @Binding var rotationAngle: Angle
     @GestureState private var gestureRotation: Angle = .zero
-    @Binding private var angleSnap: Double?
+    var angleSnap: Double?
+    var enableVibration: Bool = false
     
     /// viewSize is needed for the calculation of the Width and Height of the View.
     @State private var viewSize: CGSize = .zero
-    
-    public init(rotationAngle: Angle = .degrees(0.0), angleSnap: Binding<Double?> = .constant(nil)) {
-        _rotationAngle = State(initialValue: rotationAngle)
-        _angleSnap = angleSnap
-    }
     
     public func body(content: Content) -> some View {
         GeometryReader { geometry in
@@ -37,18 +34,24 @@ public struct SimpleRotation: ViewModifier {
                 .gesture(
                     DragGesture()
                         .updating($gestureRotation) { value, state, _ in
-                            state = calculateRotation(value: value)
+                            state = calculateRotation(value: value, snapToAngle: false)
+                            
                         }
                         .onEnded { value in
-                            rotationAngle = rotationAngle + calculateRotation(value: value)
+                            rotationAngle = rotationAngle + calculateRotation(value: value, snapToAngle: true)
                         }
                 )
         }
         /// This ".frame" modifier ensures that the content is at the center of the view always.
         .frame(width: viewSize.width, height: viewSize.height)
+        .sensoryFeedback(.increase, trigger: gestureRotation) { oldValue, newValue in
+            return enableVibration
+        }
+        .animation(.snappy, value: rotationAngle)
+
     }
     
-    public func calculateRotation(value: DragGesture.Value) -> Angle {
+    public func calculateRotation(value: DragGesture.Value, snapToAngle: Bool) -> Angle {
         let centerX = viewSize.width / 2
         let centerY = viewSize.height / 2
         let startVector = CGVector(dx: value.startLocation.x - centerX, dy: value.startLocation.y - centerY)
@@ -57,7 +60,7 @@ public struct SimpleRotation: ViewModifier {
         var rotation = Angle(radians: Double(angleDifference))
         
         // Apply angle snapping if specified
-        if let snap = angleSnap {
+        if snapToAngle, let snap = angleSnap {
             let snapAngle = Angle(degrees: snap)
             let snappedRotation = round(rotation.radians / snapAngle.radians) * snapAngle.radians
             rotation = Angle(radians: snappedRotation)
@@ -76,13 +79,16 @@ struct FrameSizeKeySimpleRotation: PreferenceKey {
     }
 }
 
+@available(iOS 17.0, *)
 public extension View {
     func simpleRotation(
-        rotationAngle: Angle? = nil,
-        angleSnap: Binding<Double?> = .constant(nil)) -> some View {
+        rotationAngle: Binding<Angle>,
+        angleSnap: Double? = nil,
+        enableVibration: Bool = false) -> some View {
         let effect = SimpleRotation(
-            rotationAngle: rotationAngle ?? .degrees(0.0),
-            angleSnap: angleSnap
+            rotationAngle: rotationAngle,
+            angleSnap: angleSnap,
+            enableVibration: enableVibration
         )
         return self.modifier(effect)
     }

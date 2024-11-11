@@ -13,6 +13,7 @@ public struct SimpleRotation: ViewModifier {
     @GestureState private var gestureRotation: Angle = .zero
     var angleSnap: Double?
     var enableVibration: Bool = false
+    var onRotationUpdated: () -> Void
     
     /// viewSize is needed for the calculation of the Width and Height of the View.
     @State private var viewSize: CGSize = .zero
@@ -39,6 +40,7 @@ public struct SimpleRotation: ViewModifier {
                         }
                         .onEnded { value in
                             rotationAngle = rotationAngle + calculateRotation(value: value, snapToAngle: true)
+                            onRotationUpdated()
                         }
                 )
         }
@@ -84,11 +86,13 @@ public extension View {
     func simpleRotation(
         rotationAngle: Binding<Angle>,
         angleSnap: Double? = nil,
-        enableVibration: Bool = false) -> some View {
+        enableVibration: Bool = false,
+        onRotationUpdated: @escaping () -> Void) -> some View {
         let effect = SimpleRotation(
             rotationAngle: rotationAngle,
             angleSnap: angleSnap,
-            enableVibration: enableVibration
+            enableVibration: enableVibration,
+            onRotationUpdated: onRotationUpdated
         )
         return self.modifier(effect)
     }
